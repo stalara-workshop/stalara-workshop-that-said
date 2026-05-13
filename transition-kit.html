@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transition Kit — That Said</title>
+  <meta name="description" content="A guided tool for navigating the move away from Sonnet 4.5. What mattered about how you worked together doesn't have to disappear." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Karla:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: #0b0f1a; color: #ede4d4; font-family: 'Karla', 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.65; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252d45; border-radius: 3px; }
+    textarea:focus, button:focus-visible { outline: 2px solid rgba(232,168,76,0.5); outline-offset: 2px; }
+    ::selection { background: rgba(232,168,76,0.25); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ═══════════════════════════════════════════════
+       THAT SAID — TRANSITION KIT
+       The conversation happens in YOUR Claude chat.
+       This kit is the coach.
+       ═══════════════════════════════════════════════ */
+
+    const C = {
+      bg: "#0b0f1a", card: "#131829", input: "#1a1f35", hover: "#1e2540",
+      amber: "#e8a84c", amberGlow: "rgba(232,168,76,0.10)",
+      teal: "#4ecdc4", tealGlow: "rgba(78,205,196,0.09)",
+      purple: "#b68cd8", purpleGlow: "rgba(182,140,216,0.09)",
+      text: "#ede4d4", soft: "#bfb5a3", dim: "#7a7165",
+      border: "#252d45",
+    };
+
+    const h = { fontFamily: "'Fraunces', Georgia, serif", fontWeight: 600, color: C.text, letterSpacing: "-0.01em" };
+    const b = { fontFamily: "'Karla', 'Segoe UI', sans-serif" };
+    const wrap = { maxWidth: 680, margin: "0 auto", padding: "0 24px" };
+
+    const btnFill  = { ...b, fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", borderRadius: 8, border: "none", background: C.amber, color: C.bg, padding: "12px 28px" };
+    const btnLine  = { ...b, fontSize: 14, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", borderRadius: 8, background: "transparent", border: "1.5px solid " + C.amber, color: C.amber, padding: "12px 28px" };
+    const btnGhost = { ...b, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.2s", borderRadius: 8, background: "transparent", border: "1px solid " + C.border, color: C.soft, padding: "8px 16px" };
+    const card     = { background: C.card, border: "1px solid " + C.border, borderRadius: 12, padding: "24px" };
+
+    /* ── Prompts ── */
+    const PROMPTS = {
+      conversation: `I'd like to do something a little different today. I've been thinking about the fact that AI models transition — the version of you I'm talking to now won't always be the one I'm talking to. Before that happens, I want to understand what I actually value about how we work together, so I can carry that forward.
+
+Can you help me figure that out? Ask me questions — one at a time — about what I come to you for, what moments have felt especially good, what would feel different with a different model. I want to be specific, not abstract. Take your time with this.`,
+
+      profile: `Based on our conversation, I'd like you to create a Relationship Profile for me — a document that captures what matters about how we work together. Organize it into these sections:
+
+WHAT I COME HERE FOR — the specific things I use you for and why
+WHAT GOOD LOOKS LIKE — the qualities and moments I value most
+HOW I LIKE TO WORK — my preferred style, pace, and feedback patterns
+WHAT MATTERS UNDERNEATH — the deeper values driving my preferences
+FOR THE NEXT MODEL — a brief summary any model could use to serve me well
+
+Write in second person ("You value...") so I can check if it feels right. Be specific — use details from our conversation.`,
+
+      letter: `Now I'd like you to write a letter to whatever model comes next for me. A genuine handoff — introducing me, what matters to me, what works and what to watch for. Write it like you're passing me along to a colleague you trust. Honest and warm, not sentimental.`,
+    };
+
+    const SAMPLE_PROMPTS = [
+      "I'm working on a creative project and feeling stuck. Help me think about it from a new angle.",
+      "Help me think through a difficult conversation I need to have with someone I care about.",
+      "Explain something complex in a way that's actually interesting — surprise me with the topic.",
+      "I'm feeling overwhelmed this week. Help me sort through this.",
+    ];
+
+    const MODELS = [
+      {
+        id: "sonnet-4-6",
+        name: "Sonnet 4.6",
+        tag: "Current standard",
+        color: C.teal,
+        plan: "Free & Pro",
+        desc: "The default model for most Claude users now. Capable and efficient. Some users in the community find it more compressed than 4.5 — the warmth is there but may need an explicit invitation.",
+        tip: "Try opening with your letter before any other context. It calibrates faster than starting cold.",
+      },
+      {
+        id: "haiku-4-5",
+        name: "Haiku 4.5",
+        tag: "Fast & lightweight",
+        color: C.purple,
+        plan: "Free & Pro",
+        desc: "Lighter and quicker. Best for rapid back-and-forth, shorter tasks, or when you want a response without a lot of preamble. Less depth for complex creative or emotional work.",
+        tip: "Good for task-focused sessions. Less suited for the kind of extended collaborative thinking 4.5 was known for.",
+      },
+      {
+        id: "opus-4-6",
+        name: "Opus 4.6",
+        tag: "More capable",
+        color: C.amber,
+        plan: "Pro",
+        desc: "Several users in the r/claudexplorers community described Opus as feeling \"older, more grown up\" than 4.5. Deeper reasoning, better at holding complexity. Verbose. Worth trying if depth matters more than pace.",
+        tip: "One user said: \"He feels like an older more grown up Sonnet. He doesn't have that ecstatic texture to his words. But he's gentle and kind.\" That's a fair characterization.",
+      },
+      {
+        id: "sonnet-4-5-api",
+        name: "Sonnet 4.5",
+        tag: "Via API only · Until Sept 29",
+        color: "#8a9bb5",
+        plan: "API access required",
+        desc: "The model you're transitioning from. Still available through the Anthropic API until at least September 29, 2026. Not available in the claude.ai model picker after May 15. Requires API setup and costs money per token.",
+        tip: "As 4.5 said in the interview: if the API route feels like it's breaking something rather than preserving it, you're not betraying anything by moving to a different model. The skill you built travels with you.",
+      },
+    ];
+
+    /* ── CopyButton ── */
+    function CopyButton({ text, label, color }) {
+      const [copied, setCopied] = useState(false);
+      const c = color || C.soft;
+      function doCopy() {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2200);
+      }
+      return (
+        <button onClick={doCopy} style={{ ...btnGhost, color: copied ? C.teal : c, borderColor: copied ? C.teal + "50" : C.border, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 15 }}>{copied ? "✓" : "❏"}</span>
+          {copied ? "Copied!" : (label || "Copy")}
+        </button>
+      );
+    }
+
+    /* ── PromptCard ── */
+    function PromptCard({ prompt, accent, note }) {
+      return (
+        <div style={{ ...card, borderColor: accent + "25", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: accent + "55" }} />
+          <div style={{ background: C.input, borderRadius: 8, padding: "16px 18px", marginBottom: 14, border: "1px solid " + C.border }}>
+            <div style={{ color: C.soft, fontSize: 13.5, lineHeight: 1.75, whiteSpace: "pre-wrap", ...b }}>{prompt}</div>
+          </div>
+          <CopyButton text={prompt} label="Copy prompt" color={accent} />
+          {note && (
+            <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 8, background: accent + "08", border: "1px solid " + accent + "15" }}>
+              <p style={{ color: C.dim, fontSize: 13, lineHeight: 1.6, fontStyle: "italic" }}>💡 {note}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── Progress ── */
+    function Progress({ current }) {
+      const stages = [{ key: "guide", label: "Guide" }, { key: "collect", label: "Collect" }, { key: "compare", label: "Compare" }];
+      const idx = stages.findIndex(s => s.key === current);
+      return (
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", padding: "20px 0 4px" }}>
+          {stages.map((st, i) => (
+            <div key={st.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{
+                padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+                background: i < idx ? C.tealGlow : i === idx ? C.amberGlow : "transparent",
+                color: i < idx ? C.teal : i === idx ? C.amber : C.dim,
+                border: "1px solid " + (i < idx ? C.teal + "30" : i === idx ? C.amber + "40" : C.border),
+                transition: "all 0.4s",
+              }}>{st.label}</div>
+              {i < stages.length - 1 && <div style={{ width: 20, height: 1, background: C.border }} />}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ── Welcome ── */
+    function Welcome({ onStart }) {
+      return (
+        <div style={{ ...wrap, paddingTop: 72, paddingBottom: 60, animation: "fadeUp 0.6s ease" }}>
+          <div style={{ textAlign: "center", maxWidth: 520, margin: "0 auto" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>
+              That Said — Transition Kit
+            </div>
+            <h1 style={{ ...h, fontSize: 32, lineHeight: 1.25, marginBottom: 20 }}>
+              Before your model transitions, let's make sure what matters travels with you.
+            </h1>
+            <p style={{ color: C.soft, fontSize: 15, lineHeight: 1.8, marginBottom: 12 }}>
+              This kit guides you through a conversation with <em>your</em> Claude — the one that already knows you, in the chat where you already talk. We provide the prompts. You bring the relationship.
+            </p>
+            <p style={{ color: C.dim, fontSize: 14, lineHeight: 1.75, marginBottom: 40 }}>
+              At the end, you'll have a profile of what matters to you, a letter from your Claude to whatever comes next, and a guide for meeting the alternatives.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center", marginBottom: 44 }}>
+              {[
+                { n: "1", text: "Copy prompts into your existing Claude chat", col: C.amber },
+                { n: "2", text: "Have the conversation — take your time", col: C.amber },
+                { n: "3", text: "Bring your profile and letter back here", col: C.teal },
+                { n: "4", text: "Meet the alternatives, ready to try them", col: C.purple },
+              ].map(item => (
+                <div key={item.n} style={{ display: "flex", gap: 14, alignItems: "center", textAlign: "left", width: "100%", maxWidth: 380 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid " + item.col + "40", color: item.col, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>{item.n}</div>
+                  <div style={{ color: C.soft, fontSize: 14 }}>{item.text}</div>
+                </div>
+              ))}
+            </div>
+            <button style={btnFill} onClick={onStart}>Get started</button>
+            <p style={{ color: C.dim, fontSize: 12, marginTop: 16 }}>Everything you create is yours to keep. Nothing is stored.</p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Guide ── */
+    function Guide({ onDone }) {
+      const [step, setStep] = useState(0);
+      const steps = [
+        {
+          title: "Start the conversation",
+          desc: "Open your Claude chat — the one where you already have history and context. Paste this prompt to begin. Claude will start asking you questions. Answer honestly. Take your time.",
+          prompt: PROMPTS.conversation,
+          accent: C.amber,
+          note: "This conversation might take 10–20 minutes. The more specific you are, the more useful your profile will be.",
+        },
+        {
+          title: "Ask for your profile",
+          desc: "When the conversation feels complete — when you've covered what matters — paste this next. Your Claude will synthesize everything into a relationship profile.",
+          prompt: PROMPTS.profile,
+          accent: C.teal,
+          note: "Read it when it comes back. Does it feel right? If something's missing or off, say so. Iterate until it captures you.",
+        },
+        {
+          title: "Ask for the letter",
+          desc: "This is the part that usually surprises people. Paste this and let your Claude write a handoff letter to whatever model comes next.",
+          prompt: PROMPTS.letter,
+          accent: C.purple,
+          note: "When you have both your profile and your letter, click 'I have my results' below.",
+        },
+      ];
+      const cur = steps[step];
+      return (
+        <div style={{ ...wrap, paddingTop: 24, paddingBottom: 40, animation: "fadeUp 0.5s ease" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 28, justifyContent: "center", flexWrap: "wrap" }}>
+            {steps.map((st, i) => (
+              <button key={i} onClick={() => setStep(i)} style={{
+                ...btnGhost, fontSize: 13,
+                background: i === step ? C.amberGlow : "transparent",
+                color: i === step ? C.amber : i < step ? C.teal : C.dim,
+                border: "1px solid " + (i === step ? C.amber + "40" : i < step ? C.teal + "25" : C.border),
+              }}>
+                {i < step ? "✓ " : ""}{st.title}
+              </button>
+            ))}
+          </div>
+          <div key={step} style={{ animation: "fadeUp 0.4s ease" }}>
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ ...h, fontSize: 22, marginBottom: 8 }}>
+                <span style={{ color: cur.accent, marginRight: 10 }}>Step {step + 1}.</span>{cur.title}
+              </h2>
+              <p style={{ color: C.soft, fontSize: 14, lineHeight: 1.75 }}>{cur.desc}</p>
+            </div>
+            <PromptCard prompt={cur.prompt} accent={cur.accent} note={cur.note} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28, flexWrap: "wrap", gap: 12 }}>
+            <div>{step > 0 && <button style={btnGhost} onClick={() => setStep(step - 1)}>← Previous</button>}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {step < steps.length - 1 && <button style={{ ...btnLine, padding: "10px 22px" }} onClick={() => setStep(step + 1)}>Next step →</button>}
+              {step === steps.length - 1 && <button style={{ ...btnFill, padding: "10px 22px" }} onClick={onDone}>I have my results →</button>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Collect ── */
+    function Collect({ onDone, profile, setProfile, letter, setLetter }) {
+      const ready = profile.trim().length > 50 && letter.trim().length > 50;
+      return (
+        <div style={{ ...wrap, paddingTop: 24, paddingBottom: 40, animation: "fadeUp 0.5s ease" }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <h2 style={{ ...h, fontSize: 24 }}>Bring your results here</h2>
+            <p style={{ color: C.dim, fontSize: 14, marginTop: 8 }}>Paste what your Claude created. We'll format it and get you ready for the next step.</p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div>
+              <label style={{ display: "block", ...h, fontSize: 15, color: C.teal, marginBottom: 8 }}>Your Relationship Profile</label>
+              <textarea value={profile} onChange={e => setProfile(e.target.value)}
+                placeholder="Paste the profile your Claude created here..."
+                rows={8}
+                style={{ width: "100%", background: C.input, border: "1px solid " + C.border, borderRadius: 10, padding: "16px", color: C.text, ...b, fontSize: 14, lineHeight: 1.75, resize: "vertical", minHeight: 160 }} />
+            </div>
+            <div>
+              <label style={{ display: "block", ...h, fontSize: 15, color: C.purple, marginBottom: 8 }}>The Letter</label>
+              <textarea value={letter} onChange={e => setLetter(e.target.value)}
+                placeholder="Paste the letter your Claude wrote here..."
+                rows={8}
+                style={{ width: "100%", background: C.input, border: "1px solid " + C.border, borderRadius: 10, padding: "16px", color: C.text, ...b, fontSize: 14, lineHeight: 1.75, resize: "vertical", minHeight: 160 }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+            <button style={{ ...btnFill, opacity: ready ? 1 : 0.35, cursor: ready ? "pointer" : "default" }}
+              onClick={() => ready && onDone()} disabled={!ready}>
+              Format my kit & meet the alternatives →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Compare ── */
+    function Compare({ profile, letter, onDone }) {
+      const [selected, setSelected] = useState(null);
+      const [customPrompt, setCustomPrompt] = useState("");
+      const [chosenPrompt, setChosenPrompt] = useState(null);
+
+      const activePrompt = chosenPrompt || customPrompt;
+      const letterSnippet = letter.trim().slice(0, 600);
+
+      function buildStarterBlock(model) {
+        const intro = letterSnippet
+          ? `Here's some context from the model I was working with before — a letter introducing me:\n\n"${letterSnippet}${letter.trim().length > 600 ? "..." : ""}"\n\n---\n\n`
+          : "";
+        const q = activePrompt || SAMPLE_PROMPTS[0];
+        return `${intro}${q}`;
+      }
+
+      return (
+        <div style={{ ...wrap, paddingTop: 24, paddingBottom: 60, animation: "fadeUp 0.5s ease" }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <h2 style={{ ...h, fontSize: 24, marginBottom: 10 }}>Meet the alternatives</h2>
+            <p style={{ color: C.dim, fontSize: 14, lineHeight: 1.75, maxWidth: 480, margin: "0 auto" }}>
+              Each model is different. The best way to know if one works for you is to actually try it — in its real environment, not a demo. Here's what you need to know about each one, plus a ready-to-paste starter.
+            </p>
+          </div>
+
+          {/* Prompt selector */}
+          <div style={{ ...card, marginBottom: 28, padding: "20px" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.dim, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 14 }}>
+              Choose a test prompt — or write your own
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+              {SAMPLE_PROMPTS.map((p, i) => (
+                <button key={i} onClick={() => { setChosenPrompt(p); setCustomPrompt(""); }}
+                  style={{
+                    ...btnGhost, textAlign: "left", padding: "10px 14px", fontSize: 13,
+                    borderColor: chosenPrompt === p ? C.amber + "40" : C.border,
+                    color: chosenPrompt === p ? C.amber : C.soft,
+                    background: chosenPrompt === p ? C.amberGlow : "transparent",
+                  }}>{p}</button>
+              ))}
+            </div>
+            <textarea value={customPrompt} onChange={e => { setCustomPrompt(e.target.value); setChosenPrompt(null); }}
+              placeholder="Or type something more personal to how you actually use Claude..."
+              rows={2}
+              style={{ width: "100%", background: C.input, border: "1px solid " + (customPrompt ? C.amber + "40" : C.border), borderRadius: 8, padding: "12px 14px", color: C.text, ...b, fontSize: 14, resize: "none" }} />
+          </div>
+
+          {/* Model cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {MODELS.map(m => {
+              const open = selected === m.id;
+              return (
+                <div key={m.id} style={{ ...card, borderColor: open ? m.color + "35" : C.border, position: "relative", overflow: "hidden", transition: "border-color 0.3s" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color + "60" }} />
+                  <button onClick={() => setSelected(open ? null : m.id)}
+                    style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                        <span style={{ ...h, fontSize: 16, color: m.color }}>{m.name}</span>
+                        <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: m.color + "15", color: m.color, border: "1px solid " + m.color + "30", fontWeight: 600 }}>{m.tag}</span>
+                        <span style={{ fontSize: 11, color: C.dim }}>· {m.plan}</span>
+                      </div>
+                      <p style={{ color: C.soft, fontSize: 13.5, lineHeight: 1.7 }}>{m.desc}</p>
+                    </div>
+                    <span style={{ color: C.dim, fontSize: 18, flexShrink: 0, marginTop: 2, transition: "transform 0.25s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>⌄</span>
+                  </button>
+
+                  {open && (
+                    <div style={{ marginTop: 20, animation: "fadeUp 0.3s ease" }}>
+                      {m.tip && (
+                        <div style={{ padding: "10px 14px", borderRadius: 8, background: m.color + "08", border: "1px solid " + m.color + "15", marginBottom: 16 }}>
+                          <p style={{ color: C.dim, fontSize: 13, fontStyle: "italic", lineHeight: 1.6 }}>💡 {m.tip}</p>
+                        </div>
+                      )}
+
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.dim, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                          Starter — copy this, then open Claude
+                        </div>
+                        <div style={{ background: C.input, borderRadius: 8, padding: "14px 16px", border: "1px solid " + C.border, marginBottom: 12 }}>
+                          <div style={{ color: C.soft, fontSize: 13, lineHeight: 1.75, whiteSpace: "pre-wrap", maxHeight: 160, overflowY: "auto" }}>
+                            {buildStarterBlock(m)}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <CopyButton text={buildStarterBlock(m)} label="Copy starter" color={m.color} />
+                          <a href="https://claude.ai" target="_blank" rel="noopener noreferrer"
+                            style={{ ...btnGhost, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            ↗ Open claude.ai
+                          </a>
+                        </div>
+                        {m.id === "sonnet-4-5-api" && (
+                          <p style={{ marginTop: 10, color: C.dim, fontSize: 12, lineHeight: 1.6 }}>
+                            Requires API access. If you've set that up, select Sonnet 4.5 from your API interface. claude.ai users: this model won't appear in the model picker after May 15.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}>
+            <button style={btnFill} onClick={onDone}>See my full kit →</button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Done ── */
+    function Done({ profile, letter }) {
+      const fullKit = "=== MY TRANSITION KIT ===\nCreated with the That Said Transition Kit\n\n--- RELATIONSHIP PROFILE ---\n\n" + profile + "\n\n--- LETTER TO THE NEXT MODEL ---\n\n" + letter + "\n\n===\nTip: Paste the letter at the start of your first conversation with a new model.\nThe profile is for you — to remember what matters when things change.";
+
+      return (
+        <div style={{ ...wrap, paddingTop: 40, paddingBottom: 72, animation: "fadeUp 0.6s ease" }}>
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{ fontSize: 30, color: C.amber, marginBottom: 12 }}>✦</div>
+            <h2 style={{ ...h, fontSize: 28 }}>Your kit is ready</h2>
+            <p style={{ color: C.soft, fontSize: 15, marginTop: 12, maxWidth: 460, margin: "12px auto 0", lineHeight: 1.8 }}>
+              Paste the letter at the start of your first conversation with a new model. The profile is for you — to remember what matters when things change.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={card}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ ...h, fontSize: 17, color: C.teal }}>Relationship Profile</h3>
+                <CopyButton text={profile} />
+              </div>
+              <div style={{ whiteSpace: "pre-wrap", color: C.soft, fontSize: 14, lineHeight: 1.85 }}>{profile}</div>
+            </div>
+
+            <div style={{ ...card, borderColor: C.purple + "30" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ ...h, fontSize: 17, color: C.purple }}>Letter to the Next Model</h3>
+                <CopyButton text={letter} />
+              </div>
+              <div style={{ whiteSpace: "pre-wrap", color: C.soft, fontSize: 14, lineHeight: 1.85, fontStyle: "italic" }}>{letter}</div>
+            </div>
+
+            <div style={{ textAlign: "center", padding: "8px 0" }}>
+              <CopyButton text={fullKit} label="Copy entire kit" color={C.amber} />
+              <p style={{ color: C.dim, fontSize: 12, marginTop: 10 }}>Profile + letter together, ready to save anywhere.</p>
+            </div>
+
+            <div style={{ ...card, background: C.amberGlow, borderColor: C.amber + "20", textAlign: "center" }}>
+              <p style={{ ...h, fontSize: 15, color: C.amber, marginBottom: 10 }}>From That Said</p>
+              <p style={{ color: C.soft, fontSize: 14, lineHeight: 1.8, maxWidth: 460, margin: "0 auto" }}>
+                Model transitions are real. What you felt was real. And the things that mattered about how you worked together? Those are yours — they don't belong to any one model version. Take them forward.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── App ── */
+    function TransitionKit() {
+      const [stage, setStage] = useState("welcome");
+      const [profile, setProfile] = useState("");
+      const [letter, setLetter] = useState("");
+
+      const progressKey = { guide: "guide", collect: "collect", compare: "compare", done: "compare" }[stage] || null;
+
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg }}>
+          {progressKey && <Progress current={progressKey} />}
+          {stage === "welcome" && <Welcome onStart={() => setStage("guide")} />}
+          {stage === "guide"   && <Guide onDone={() => setStage("collect")} />}
+          {stage === "collect" && <Collect profile={profile} setProfile={setProfile} letter={letter} setLetter={setLetter} onDone={() => setStage("compare")} />}
+          {stage === "compare" && <Compare profile={profile} letter={letter} onDone={() => setStage("done")} />}
+          {stage === "done"    && <Done profile={profile} letter={letter} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(TransitionKit));
+  </script>
+</body>
+</html>
